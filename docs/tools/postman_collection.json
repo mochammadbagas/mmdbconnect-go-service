@@ -1,0 +1,2133 @@
+{
+  "info": {
+    "_postman_id": "f5c2b189-9a67-4e92-807e-9cb2a9261a01",
+    "description": "Koleksi Postman resmi untuk mmdbconnect go service. Dilengkapi dengan autentikasi JWT Access \u0026 Refresh Token (RTR \u0026 Reuse Detection), User \u0026 Profile Management, serta ULID Identifier.",
+    "name": "mmdbconnect go service - REST API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "item": [
+        {
+          "name": "0.1 Full System Health Check",
+          "request": {
+            "description": "Pemeriksaan kesehatan sistem menyeluruh termasuk verifikasi koneksi dan query ping ke MySQL database.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["health"],
+              "raw": "{{baseUrl}}/health"
+            }
+          }
+        },
+        {
+          "name": "0.2 Liveness Probe",
+          "request": {
+            "description": "Liveness probe instan untuk orkestrator kontainer (Kubernetes / Docker) untuk memverifikasi proses server berjalan.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "live"],
+              "raw": "{{baseUrl}}/health/live"
+            }
+          }
+        },
+        {
+          "name": "0.3 Readiness Probe",
+          "request": {
+            "description": "Readiness probe untuk ingress load balancer untuk memastikan server dan database siap menerima lalu lintas HTTP.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "ready"],
+              "raw": "{{baseUrl}}/health/ready"
+            }
+          }
+        }
+      ],
+      "name": "0. System Health \u0026 Probes"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set(\"sampleUserId\", jsonData.id);",
+                  "        try { pm.environment.set(\"sampleUserId\", jsonData.id); } catch(e) {}",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "1.1 Register Akun Baru",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"johndoe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"full_name\": \"John Doe\"\n}"
+            },
+            "description": "Registrasi pengguna baru dengan validasi format email, kekuatan password, dan pembuatan profil default.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"],
+              "raw": "{{baseUrl}}/api/v1/auth/register"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.access_token) {",
+                  "        pm.collectionVariables.set(\"accessToken\", jsonData.access_token);",
+                  "        try { pm.environment.set(\"accessToken\", jsonData.access_token); } catch(e) {}",
+                  "    }",
+                  "    if (jsonData.refresh_token) {",
+                  "        pm.collectionVariables.set(\"refreshToken\", jsonData.refresh_token);",
+                  "        try { pm.environment.set(\"refreshToken\", jsonData.refresh_token); } catch(e) {}",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "1.2 Login (Mendapatkan Token Hybrid)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"adminpassword123\"\n}"
+            },
+            "description": "Login pengguna/admin. Mengembalikan JWT Access Token dan Refresh Token, serta otomatis menyetel HTTP-only cookie.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"],
+              "raw": "{{baseUrl}}/api/v1/auth/login"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.access_token) {",
+                  "        pm.collectionVariables.set(\"accessToken\", jsonData.access_token);",
+                  "        try { pm.environment.set(\"accessToken\", jsonData.access_token); } catch(e) {}",
+                  "    }",
+                  "    if (jsonData.refresh_token) {",
+                  "        pm.collectionVariables.set(\"refreshToken\", jsonData.refresh_token);",
+                  "        try { pm.environment.set(\"refreshToken\", jsonData.refresh_token); } catch(e) {}",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "1.3 Refresh Token (Rotation \u0026 RTR)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            },
+            "description": "Memperoleh Access Token baru menggunakan Refresh Token. Menerapkan rotasi token \u0026 deteksi reuse pembajakan sesi.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "refresh"],
+              "raw": "{{baseUrl}}/api/v1/auth/refresh"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set(\"refreshToken\", \"\");",
+                  "    try { pm.environment.set(\"refreshToken\", \"\"); } catch(e) {}",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "1.4 Logout",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            },
+            "description": "Mencabut refresh token dan menghapus cookie autentikasi.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"],
+              "raw": "{{baseUrl}}/api/v1/auth/logout"
+            }
+          }
+        },
+        {
+          "name": "1.5 Ganti Password",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"old_password\": \"adminpassword123\",\n  \"new_password\": \"newpassword12345\"\n}"
+            },
+            "description": "Mengganti password akun dan mencabut seluruh sesi refresh token aktif pengguna.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "change-password"],
+              "raw": "{{baseUrl}}/api/v1/auth/change-password"
+            }
+          }
+        },
+        {
+          "name": "1.6 Lupa Password (Forgot Password)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\"\n}"
+            },
+            "description": "Mengirim tautan reset password. Proteksi anti user-enumeration (selalu mengembalikan 200 OK).",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "forgot-password"],
+              "raw": "{{baseUrl}}/api/v1/auth/forgot-password"
+            }
+          }
+        },
+        {
+          "name": "1.7 Reset Password (dengan Token)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{sampleToken}}\",\n  \"new_password\": \"newpassword12345\"\n}"
+            },
+            "description": "Mengatur ulang password menggunakan token reset dari email (disimpan di variabel {{sampleToken}}). Mencabut seluruh refresh token aktif.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "reset-password"],
+              "raw": "{{baseUrl}}/api/v1/auth/reset-password"
+            }
+          }
+        },
+        {
+          "name": "1.8 Verifikasi Email (Token via Query)",
+          "request": {
+            "description": "Verifikasi alamat email pengguna via query parameter (POST untuk mencegah auto-trigger web scanner).",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "verify-email"],
+              "query": [
+                {
+                  "description": "Token verifikasi yang didapat dari email / terminal LogMailer",
+                  "key": "token",
+                  "value": "{{sampleToken}}"
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/auth/verify-email?token={{sampleToken}}"
+            }
+          }
+        },
+        {
+          "name": "1.9 Verifikasi Email (Token via Body)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{sampleToken}}\"\n}"
+            },
+            "description": "Verifikasi alamat email pengguna via JSON payload POST (Mobile / API Client).",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "verify-email"],
+              "raw": "{{baseUrl}}/api/v1/auth/verify-email"
+            }
+          }
+        },
+        {
+          "name": "1.10 Kirim Ulang Email Verifikasi",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\"\n}"
+            },
+            "description": "Mengirim ulang tautan verifikasi email jika token kedaluwarsa atau belum diterima. Dilengkapi anti-enumerasi.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "resend-verification"],
+              "raw": "{{baseUrl}}/api/v1/auth/resend-verification"
+            }
+          }
+        }
+      ],
+      "name": "1. Authentication"
+    },
+    {
+      "item": [
+        {
+          "name": "2.1 Profil Saya (/me)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Melihat detail akun dan profil pengguna yang sedang login.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"],
+              "raw": "{{baseUrl}}/api/v1/users/me"
+            }
+          }
+        },
+        {
+          "name": "2.2 Update Profil Saya",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"John Doe\",\n  \"bio\": \"Software Engineer and Backend Enthusiast\",\n  \"phone_number\": \"+6281234567890\"\n}"
+            },
+            "description": "Memperbarui data profil pengguna (nama lengkap, bio, nomor telepon).",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "profile"],
+              "raw": "{{baseUrl}}/api/v1/users/profile"
+            }
+          }
+        },
+        {
+          "name": "2.3 Upload Avatar",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "formdata": [
+                {
+                  "description": "Pilih file gambar lokal (.jpg, .jpeg, .png, .webp)",
+                  "key": "avatar",
+                  "type": "file"
+                }
+              ],
+              "mode": "formdata"
+            },
+            "description": "Mengunggah foto avatar pengguna.",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "avatar"],
+              "raw": "{{baseUrl}}/api/v1/users/avatar"
+            }
+          }
+        },
+        {
+          "name": "2.4 Hapus Avatar",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Menghapus foto avatar pengguna.",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "avatar"],
+              "raw": "{{baseUrl}}/api/v1/users/avatar"
+            }
+          }
+        },
+        {
+          "name": "2.5 Ubah Username",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"johndoe_new\"\n}"
+            },
+            "description": "Mengubah username dengan validasi unik.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "username"],
+              "raw": "{{baseUrl}}/api/v1/users/username"
+            }
+          }
+        },
+        {
+          "name": "2.6 Cek Status Akun",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Melihat status akun dan status verifikasi email.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "status"],
+              "raw": "{{baseUrl}}/api/v1/users/status"
+            }
+          }
+        },
+        {
+          "name": "2.7 Permintaan Ganti Email (Request Change)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_email\": \"johndoe_new@example.com\",\n  \"password\": \"adminpassword123\"\n}"
+            },
+            "description": "Mengajukan penggantian email akun dengan validasi password saat ini. Token verifikasi dikirim ke email baru.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "email", "request-change"],
+              "raw": "{{baseUrl}}/api/v1/users/email/request-change"
+            }
+          }
+        },
+        {
+          "name": "2.8 Konfirmasi Ganti Email (Token via Query)",
+          "request": {
+            "description": "Konfirmasi ganti email via query parameter (POST untuk mencegah auto-trigger web scanner). Mengubah email akun dan menandainya terverifikasi.",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "email", "confirm-change"],
+              "query": [
+                {
+                  "description": "Token verifikasi konfirmasi ganti email (disimpan di variabel {{sampleToken}})",
+                  "key": "token",
+                  "value": "{{sampleToken}}"
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/users/email/confirm-change?token={{sampleToken}}"
+            }
+          }
+        },
+        {
+          "name": "2.9 Konfirmasi Ganti Email (Token via Body)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{sampleToken}}\"\n}"
+            },
+            "description": "Konfirmasi ganti email via JSON payload POST (Mobile / REST Client).",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "email", "confirm-change"],
+              "raw": "{{baseUrl}}/api/v1/users/email/confirm-change"
+            }
+          }
+        }
+      ],
+      "name": "2. User Management"
+    },
+    {
+      "item": [
+        {
+          "name": "3.1 Daftar Artikel (Admin)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Mengambil seluruh daftar artikel dengan filter (status, author, kategori, search, pagination).",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "articles"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/articles?page=1\u0026per_page=10"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set(\"sampleArticleId\", jsonData.id);",
+                  "        try { pm.environment.set(\"sampleArticleId\", jsonData.id); } catch(e) {}",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "3.2 Buat Artikel Baru",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Panduan Arsitektur Go REST API Modern\",\n  \"slug\": \"panduan-arsitektur-go-rest-api-modern\",\n  \"excerpt\": \"Membangun sistem artikel enterprise yang aman dengan HTML Sanitizer, ULID, dan SQLC.\",\n  \"content\": \"\u003ch2\u003eArsitektur Backend Go\u003c/h2\u003e\u003cp\u003eArtikel ini menjelaskan penggunaan Clean Architecture...\u003c/p\u003e\u003cp\u003e\u003cimg src=\\\"http://localhost:8080/uploads/diagram.png\\\" data-media-id=\\\"{{sampleMediaId}}\\\" alt=\\\"Diagram Arsitektur\\\" /\u003e\u003c/p\u003e\",\n  \"category_id\": \"{{sampleCategoryId}}\",\n  \"featured_image_id\": \"{{sampleMediaId}}\",\n  \"og_image_id\": \"{{sampleMediaId}}\",\n  \"tags\": [\"Go\", \"Clean Architecture\", \"SQLC\"],\n  \"related_ids\": [],\n  \"meta_title\": \"Panduan Arsitektur Go REST API Modern\",\n  \"meta_description\": \"Best practices clean architecture dalam Go REST API.\",\n  \"is_featured\": true,\n  \"robots_index\": true,\n  \"robots_follow\": true,\n  \"status\": \"published\"\n}"
+            },
+            "description": "Membuat artikel baru dengan validasi HTML XSS sanitizer dan relasi media otomatis.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "articles"],
+              "raw": "{{baseUrl}}/api/v1/admin/articles"
+            }
+          }
+        },
+        {
+          "name": "3.3 Detail Artikel (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Mengambil detail artikel berdasarkan ULID beserta data kategori, tags, relasi media, dan total views.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "articles", "{{sampleArticleId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}"
+            }
+          }
+        },
+        {
+          "name": "3.4 Update Artikel (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Panduan Arsitektur Go REST API Modern (Revisi)\",\n  \"slug\": \"panduan-arsitektur-go-rest-api-modern\",\n  \"excerpt\": \"Revisi arsitektur sistem artikel.\",\n  \"content\": \"\u003ch2\u003eArsitektur Backend Go v2\u003c/h2\u003e\u003cp\u003eKonten yang diperbarui...\u003c/p\u003e\",\n  \"category_id\": \"{{sampleCategoryId}}\",\n  \"tags\": [\"Go\", \"Microservices\", \"REST\"],\n  \"is_featured\": true,\n  \"status\": \"published\"\n}"
+            },
+            "description": "Memperbarui artikel dan otomatis merekam snapshot riwayat revisi ke article_revisions.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "articles", "{{sampleArticleId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}"
+            }
+          }
+        },
+        {
+          "name": "3.5 Hapus Artikel (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Melakukan soft-delete artikel (mengisi kolom deleted_at).",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "articles", "{{sampleArticleId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}"
+            }
+          }
+        },
+        {
+          "name": "3.6 Riwayat Revisi Artikel",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Mengambil seluruh snapshot riwayat revisi artikel yang tersimpan.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "articles",
+                "{{sampleArticleId}}",
+                "revisions"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}/revisions"
+            }
+          }
+        },
+        {
+          "name": "3.7 Daftar Kategori (Admin)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Mengambil seluruh kategori beserta jumlah artikel terkait.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "categories"],
+              "raw": "{{baseUrl}}/api/v1/admin/categories"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set(\"sampleCategoryId\", jsonData.id);",
+                  "        try { pm.environment.set(\"sampleCategoryId\", jsonData.id); } catch(e) {}",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "3.8 Buat Kategori Baru (Admin)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cloud \u0026 Infrastructure\",\n  \"slug\": \"cloud-infrastructure\",\n  \"description\": \"Topik seputar arsitektur cloud, serverless, dan DevOps.\"\n}"
+            },
+            "description": "Membuat kategori konten baru.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "categories"],
+              "raw": "{{baseUrl}}/api/v1/admin/categories"
+            }
+          }
+        },
+        {
+          "name": "3.9 Detail Kategori (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "categories",
+                "{{sampleCategoryId}}"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/categories/{{sampleCategoryId}}"
+            }
+          }
+        },
+        {
+          "name": "3.10 Update Kategori (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cloud \u0026 Infrastructure (Updated)\",\n  \"slug\": \"cloud-infrastructure-updated\",\n  \"description\": \"Topik seputar cloud computing dan platform engineering.\"\n}"
+            },
+            "description": "Memperbarui nama dan slug kategori.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "categories",
+                "{{sampleCategoryId}}"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/categories/{{sampleCategoryId}}"
+            }
+          }
+        },
+        {
+          "name": "3.11 Hapus Kategori (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Menghapus kategori (dilindungi error 409 jika kategori masih memiliki artikel).",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "categories",
+                "{{sampleCategoryId}}"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/categories/{{sampleCategoryId}}"
+            }
+          }
+        },
+        {
+          "name": "3.12 Daftar Tags (Admin)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Mengambil seluruh daftar tag beserta jumlah artikel terkait.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags"],
+              "raw": "{{baseUrl}}/api/v1/admin/tags"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set(\"sampleTagId\", jsonData.id);",
+                  "        try { pm.environment.set(\"sampleTagId\", jsonData.id); } catch(e) {}",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "3.13 Buat Tag Baru (Admin)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Kubernetes\",\n  \"slug\": \"kubernetes\"\n}"
+            },
+            "description": "Membuat tag artikel baru.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags"],
+              "raw": "{{baseUrl}}/api/v1/admin/tags"
+            }
+          }
+        },
+        {
+          "name": "3.14 Detail Tag (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags", "{{sampleTagId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/tags/{{sampleTagId}}"
+            }
+          }
+        },
+        {
+          "name": "3.15 Update Tag (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cloud Native K8s\",\n  \"slug\": \"cloud-native-k8s\"\n}"
+            },
+            "description": "Memperbarui nama dan slug tag.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags", "{{sampleTagId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/tags/{{sampleTagId}}"
+            }
+          }
+        },
+        {
+          "name": "3.16 Hapus Tag (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Menghapus tag artikel.",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "tags", "{{sampleTagId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/tags/{{sampleTagId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set(\"sampleMediaId\", jsonData.id);",
+                  "        try { pm.environment.set(\"sampleMediaId\", jsonData.id); } catch(e) {}",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "3.17 Upload Media Library",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "formdata": [
+                {
+                  "key": "image",
+                  "src": "",
+                  "type": "file"
+                }
+              ],
+              "mode": "formdata"
+            },
+            "description": "Upload file media (JPG, PNG, WEBP, GIF, max 10MB) dengan auto-sniffing resolusi width/height.",
+            "header": [],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "media"],
+              "raw": "{{baseUrl}}/api/v1/admin/media"
+            }
+          }
+        },
+        {
+          "name": "3.18 Daftar Media Library (Admin)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Mengambil daftar seluruh media gambar yang tersimpan di storage.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "media"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "20"
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/media?page=1\u0026per_page=20"
+            }
+          }
+        },
+        {
+          "name": "3.19 Detail Media (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Mengambil detail metadata media (dimensi, ukuran file, mime-type, dan storage path).",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "media", "{{sampleMediaId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/media/{{sampleMediaId}}"
+            }
+          }
+        },
+        {
+          "name": "3.20 Hapus Media (Admin by ULID)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Menghapus media dari database dan storage (dilindungi error 409 jika media sedang dipakai artikel).",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "media", "{{sampleMediaId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/media/{{sampleMediaId}}"
+            }
+          }
+        },
+        {
+          "name": "3.21 Laporan Analitik Artikel",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Melihat metrik engagement artikel (views, unique visitors, reading time, scroll depth) hasil agregasi harian.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "articles",
+                "{{sampleArticleId}}",
+                "analytics"
+              ],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2026-12-31"
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}/analytics?start_date=2026-01-01\u0026end_date=2026-12-31"
+            }
+          }
+        },
+        {
+          "name": "3.22 Overview Analitik Global",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Melihat agregasi metrik performa seluruh sistem secara global.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "analytics", "overview"],
+              "raw": "{{baseUrl}}/api/v1/admin/analytics/overview"
+            }
+          }
+        }
+      ],
+      "name": "3. Admin Management"
+    },
+    {
+      "item": [
+        {
+          "name": "4.1 Daftar Artikel Publik",
+          "request": {
+            "description": "Mengambil daftar artikel publik yang telah terbit dengan filter fleksibel.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "articles"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "category",
+                  "value": ""
+                },
+                {
+                  "key": "tag",
+                  "value": ""
+                },
+                {
+                  "key": "is_featured",
+                  "value": ""
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/articles?page=1\u0026per_page=10\u0026search=\u0026category=\u0026tag=\u0026is_featured="
+            }
+          }
+        },
+        {
+          "name": "4.2 Detail Artikel Publik by Slug",
+          "request": {
+            "description": "Mengambil detail artikel publik terbit berdasarkan slug beserta metadata SEO.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "articles", "published-go-article"],
+              "raw": "{{baseUrl}}/api/v1/articles/published-go-article"
+            }
+          }
+        },
+        {
+          "name": "4.3 Catat Event Analitik Artikel (Publik)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"evt_client_random_ulid_123\",\n  \"session_id\": \"sess_client_session_abc\",\n  \"event_type\": \"view\",\n  \"reading_time_seconds\": 30,\n  \"scroll_depth\": 50\n}"
+            },
+            "description": "Endpoint event tracking publik dengan idempoten event_id dan anonimisasi privasi hash visitor ID.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Event-ID",
+                "value": "evt_client_random_ulid_123"
+              },
+              {
+                "key": "X-Session-ID",
+                "value": "sess_client_session_abc"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "articles",
+                "{{sampleArticleId}}",
+                "analytics"
+              ],
+              "raw": "{{baseUrl}}/api/v1/articles/{{sampleArticleId}}/analytics"
+            }
+          }
+        },
+        {
+          "name": "4.4 Daftar Kategori Publik",
+          "request": {
+            "description": "Mengambil seluruh daftar kategori untuk pengunjung publik.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories"],
+              "raw": "{{baseUrl}}/api/v1/categories"
+            }
+          }
+        },
+        {
+          "name": "4.5 Artikel Berdasarkan Slug Kategori",
+          "request": {
+            "description": "Mengambil artikel terpublikasi dalam kategori tertentu.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", "tutorials-tech", "articles"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "10"
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/categories/tutorials-tech/articles?page=1\u0026per_page=10"
+            }
+          }
+        },
+        {
+          "name": "4.6 Daftar Tag Publik",
+          "request": {
+            "description": "Mengambil seluruh daftar tag publik beserta total artikelnya.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tags"],
+              "raw": "{{baseUrl}}/api/v1/tags"
+            }
+          }
+        },
+        {
+          "name": "4.7 SEO Vanity Alias Artikel",
+          "request": {
+            "description": "Alias rute ramah SEO (/articles/{slug}) yang langsung memetakan ke artikel terbit.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["articles", "published-go-article"],
+              "raw": "{{baseUrl}}/articles/published-go-article"
+            }
+          }
+        },
+        {
+          "name": "4.8 SEO Vanity Alias (/blog/:slug)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["blog", "published-go-article"],
+              "raw": "{{baseUrl}}/blog/published-go-article"
+            }
+          }
+        },
+        {
+          "name": "4.9 SEO Vanity Alias (/journal/:slug)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["journal", "published-go-article"],
+              "raw": "{{baseUrl}}/journal/published-go-article"
+            }
+          }
+        },
+        {
+          "name": "4.10 SEO Vanity Alias (/categories/:slug)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["categories", "tutorials-tech"],
+              "raw": "{{baseUrl}}/categories/tutorials-tech"
+            }
+          }
+        }
+      ],
+      "name": "4. Public Content"
+    },
+    {
+      "item": [
+        {
+          "name": "5.1 Daftar Seluruh Role",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Melihat daftar seluruh role sistem.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles"],
+              "raw": "{{baseUrl}}/api/v1/admin/roles"
+            }
+          }
+        },
+        {
+          "name": "5.2 Detail Role Berdasarkan ULID",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Melihat detail role beserta permissions yang terikat.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", "{{sampleRoleId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/roles/{{sampleRoleId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set(\"sampleRoleId\", jsonData.id);",
+                  "        try { pm.environment.set(\"sampleRoleId\", jsonData.id); } catch(e) {}",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "5.3 Buat Role Baru",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"editor\",\n  \"display_name\": \"Content Editor\",\n  \"description\": \"Dapat mengelola postingan dan melihat daftar user\"\n}"
+            },
+            "description": "Membuat role kustom baru.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles"],
+              "raw": "{{baseUrl}}/api/v1/admin/roles"
+            }
+          }
+        },
+        {
+          "name": "5.4 Perbarui Role",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"display_name\": \"Senior Content Editor\",\n  \"description\": \"Akses editor tingkat senior\"\n}"
+            },
+            "description": "Memperbarui nama tampilan dan deskripsi role.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", "{{sampleRoleId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/roles/{{sampleRoleId}}"
+            }
+          }
+        },
+        {
+          "name": "5.5 Tetapkan Permissions ke Role",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permission_ids\": [\n    \"{{samplePermissionId}}\"\n  ]\n}"
+            },
+            "description": "Melakukan sinkronisasi permissions yang dimiliki oleh sebuah role.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "roles",
+                "{{sampleRoleId}}",
+                "permissions"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/roles/{{sampleRoleId}}/permissions"
+            }
+          }
+        },
+        {
+          "name": "5.6 Hapus Role",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Menghapus role kustom (Role sistem super_admin, admin, user diproteksi).",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "roles", "{{sampleRoleId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/roles/{{sampleRoleId}}"
+            }
+          }
+        },
+        {
+          "name": "5.7 Daftar Seluruh Permission",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Melihat master daftar permission sistem.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "permissions"],
+              "raw": "{{baseUrl}}/api/v1/admin/permissions"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.collectionVariables.set(\"samplePermissionId\", jsonData.id);",
+                  "        try { pm.environment.set(\"samplePermissionId\", jsonData.id); } catch(e) {}",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "5.8 Buat Permission Baru",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"reports.export\",\n  \"description\": \"Mengunduh dan mengekspor laporan sistem\"\n}"
+            },
+            "description": "Membuat permission granular baru dengan format resource.action.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "permissions"],
+              "raw": "{{baseUrl}}/api/v1/admin/permissions"
+            }
+          }
+        },
+        {
+          "name": "5.9 Detail Permission Berdasarkan ULID",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "permissions",
+                "{{samplePermissionId}}"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/permissions/{{samplePermissionId}}"
+            }
+          }
+        },
+        {
+          "name": "5.10 Perbarui Permission",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Mengunduh file laporan spreadsheet dan PDF\"\n}"
+            },
+            "description": "Memperbarui deskripsi permission.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "permissions",
+                "{{samplePermissionId}}"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/permissions/{{samplePermissionId}}"
+            }
+          }
+        },
+        {
+          "name": "5.11 Hapus Permission",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Menghapus permission dari master sistem.",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "permissions",
+                "{{samplePermissionId}}"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/permissions/{{samplePermissionId}}"
+            }
+          }
+        }
+      ],
+      "name": "5. RBAC Management"
+    },
+    {
+      "item": [
+        {
+          "name": "6.1 Daftar Seluruh Pengguna (Search, Filter, Pagination)",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Mengambil daftar seluruh pengguna dengan filter status, role, pencarian kata kunci, dan pagination.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                },
+                {
+                  "key": "role",
+                  "value": ""
+                }
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/users?page=1\u0026limit=10\u0026search=\u0026status=active\u0026role="
+            }
+          }
+        },
+        {
+          "name": "6.2 Detail Pengguna Lengkap",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Melihat detail profil lengkap dan daftar roles yang dimiliki seorang pengguna.",
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", "{{sampleUserId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{sampleUserId}}"
+            }
+          }
+        },
+        {
+          "name": "6.3 Perbarui Informasi Pengguna oleh Admin",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"janedoe\",\n  \"email\": \"jane.doe@example.com\",\n  \"full_name\": \"Jane Doe\",\n  \"bio\": \"Software Engineer \\u0026 Content Strategist\",\n  \"phone_number\": \"+6281234567890\"\n}"
+            },
+            "description": "Memperbarui username, email, dan biodata profil pengguna.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", "{{sampleUserId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{sampleUserId}}"
+            }
+          }
+        },
+        {
+          "name": "6.4 Ubah Status Akun Pengguna",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\"\n}"
+            },
+            "description": "Mengubah status akun (active, inactive, pending_verification, suspended). Memiliki safeguard proteksi Super Admin aktif terakhir.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users",
+                "{{sampleUserId}}",
+                "status"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{sampleUserId}}/status"
+            }
+          }
+        },
+        {
+          "name": "6.5 Tetapkan Multi-Role ke Pengguna",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_ids\": [\n    \"{{sampleRoleId}}\"\n  ]\n}"
+            },
+            "description": "Menetapkan array role IDs ke user. Memiliki safeguard proteksi pencabutan Super Admin aktif terakhir.",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "users",
+                "{{sampleUserId}}",
+                "roles"
+              ],
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{sampleUserId}}/roles"
+            }
+          }
+        },
+        {
+          "name": "6.6 Hapus Akun Pengguna",
+          "request": {
+            "auth": {
+              "bearer": [
+                {
+                  "key": "token",
+                  "type": "string",
+                  "value": "{{accessToken}}"
+                }
+              ],
+              "type": "bearer"
+            },
+            "description": "Menghapus akun pengguna. Memiliki safeguard proteksi penghapusan Super Admin aktif terakhir.",
+            "header": [],
+            "method": "DELETE",
+            "url": {
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "users", "{{sampleUserId}}"],
+              "raw": "{{baseUrl}}/api/v1/admin/users/{{sampleUserId}}"
+            }
+          }
+        }
+      ],
+      "name": "6. Admin User Management"
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "type": "string",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "accessToken",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "sampleArticleId",
+      "type": "string",
+      "value": "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+    },
+    {
+      "key": "sampleCategoryId",
+      "type": "string",
+      "value": "01ARZ3NDEKTSV4RRFFQ69G5FC1"
+    },
+    {
+      "key": "sampleTagId",
+      "type": "string",
+      "value": "01M7TAG0000000000000000001"
+    },
+    {
+      "key": "sampleMediaId",
+      "type": "string",
+      "value": "01M7MED0000000000000000001"
+    },
+    {
+      "key": "sampleToken",
+      "type": "string",
+      "value": ""
+    },
+    {
+      "key": "sampleRoleId",
+      "type": "string",
+      "value": "01M7ECAYAE7NB3X6BT4BK3DKAQ"
+    },
+    {
+      "key": "samplePermissionId",
+      "type": "string",
+      "value": "01M7ECAYAE7NB3X6BT4BK3DKB1"
+    },
+    {
+      "key": "sampleUserId",
+      "type": "string",
+      "value": "01M7ECBRK61JN9T5ANTCF1THVP"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+name: Continuous Integration (CI)
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+
+jobs:
+  test:
+    name: Run Unit Tests & Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Install Dependencies
+        run: go mod download
+
+      - name: Verify Go Module Tidiness
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Run Unit Tests
+        run: go test -v -cover ./...
+
+      - name: Test Docker Build
+        run: docker build -t mmdbconnect-test:local .

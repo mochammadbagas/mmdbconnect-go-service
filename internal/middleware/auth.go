@@ -1,0 +1,168 @@
+package middleware
+
+import (
+	"context"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/mochammadbagas/mmdbconnect-go-service/internal/repository"
+	"github.com/mochammadbagas/mmdbconnect-go-service/internal/utils"
+)
+
+type contextKey string
+
+const (
+	ClaimsContextKey contextKey = "auth_claims"
+	UserIDContextKey contextKey = "auth_user_id"
+	RoleContextKey   contextKey = "auth_role"
+)
+
+type permCacheEntry struct {
+	perms     []string
+	expiresAt time.Time
+}
+
+var (
+	userPermCache    sync.Map
+	userPermCacheTTL = 1 * time.Minute
+)
+
+// ClearUserPermissionCache clears cached permissions for a specific user (or all users if userID is empty).
+func ClearUserPermissionCache(userID string) {
+	if userID == "" {
+		userPermCache.Range(func(key, _ interface{}) bool {
+			userPermCache.Delete(key)
+			return true
+		})
+		return
+	}
+	userPermCache.Delete(userID)
+}
+
+// StartPermissionCacheSweeper runs a periodic background sweeper that purges expired permission cache entries from memory (PERF-05).
+func StartPermissionCacheSweeper(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now()
+			userPermCache.Range(func(key, val interface{}) bool {
+				if entry, ok := val.(permCacheEntry); ok && now.After(entry.expiresAt) {
+					userPermCache.Delete(key)
+				}
+				return true
+			})
+		}
+	}
+}
+
+// JWTAuthMiddleware verifies the JWT Bearer access token.
+func JWTAuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+				utils.ErrorCode(w, http.StatusUnauthorized, "TOKEN_REQUIRED", "unauthorized: Authorization header 'Bearer <token>' is required")
+				return
+			}
+
+			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+			claims, err := utils.ValidateAccessToken(jwtSecret, tokenStr)
+			if err != nil {
+				utils.ErrorCode(w, http.StatusUnauthorized, "INVALID_OR_EXPIRED_TOKEN", "unauthorized: invalid or expired token")
+				return
+			}
+
+			// Inject claims into request context
+			ctx := context.WithValue(r.Context(), ClaimsContextKey, claims)
+			ctx = context.WithValue(ctx, UserIDContextKey, claims.UserID)
+			ctx = context.WithValue(ctx, RoleContextKey, claims.Role)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// RequirePermission ensures that the authenticated user possesses the specific permission (with Super Admin wildcard bypass).
+func RequirePermission(permission string, userRepo repository.UserRepository) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims := GetClaimsFromContext(r.Context())
+			if claims == nil {
+				utils.ErrorCode(w, http.StatusForbidden, "INSUFFICIENT_PERMISSIONS", "forbidden: insufficient permissions to access this resource")
+				return
+			}
+
+			// Super Admin wildcard bypass
+			if claims.IsSuperAdmin() {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Check in-memory cache first to eliminate repetitive database queries
+			var perms []string
+			if cached, ok := userPermCache.Load(claims.UserID); ok {
+				entry := cached.(permCacheEntry)
+				if time.Now().Before(entry.expiresAt) {
+					perms = entry.perms
+				} else {
+					userPermCache.Delete(claims.UserID)
+				}
+			}
+
+			if perms == nil {
+				var err error
+				perms, err = userRepo.GetUserPermissions(r.Context(), claims.UserID)
+				if err != nil {
+					utils.ErrorCode(w, http.StatusForbidden, "PERMISSION_VERIFICATION_FAILED", "forbidden: failed to verify permissions")
+					return
+				}
+				userPermCache.Store(claims.UserID, permCacheEntry{
+					perms:     perms,
+					expiresAt: time.Now().Add(userPermCacheTTL),
+				})
+			}
+
+			hasPerm := false
+			for _, p := range perms {
+				if p == permission || p == "*" {
+					hasPerm = true
+					break
+				}
+			}
+
+			if !hasPerm {
+				utils.ErrorCode(w, http.StatusForbidden, "INSUFFICIENT_PERMISSIONS", "forbidden: insufficient permissions to access this resource")
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// GetClaimsFromContext retrieves JWT claims from request context.
+func GetClaimsFromContext(ctx context.Context) *utils.JWTClaims {
+	if val := ctx.Value(ClaimsContextKey); val != nil {
+		if claims, ok := val.(*utils.JWTClaims); ok {
+			return claims
+		}
+	}
+	return nil
+}
+
+// GetUserIDFromContext retrieves the authenticated user's ID from context.
+func GetUserIDFromContext(ctx context.Context) string {
+	if val := ctx.Value(UserIDContextKey); val != nil {
+		if id, ok := val.(string); ok {
+			return id
+		}
+	}
+	return ""
+}

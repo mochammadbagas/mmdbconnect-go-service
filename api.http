@@ -1,0 +1,543 @@
+### =========================================================================
+### mmdbconnect go service - HTTP REQUEST COLLECTION (REST CLIENT)
+### Auth (JWT + RTR), User Management, Granular RBAC, Admin Users, & Content Modules
+### =========================================================================
+
+@baseUrl = http://localhost:8080
+
+# Insert the access token obtained from login / register / refresh response:
+@accessToken = 
+@refreshToken = 
+
+# Insert verification / reset token obtained from LogMailer console or Resend inbox:
+@sampleToken = 
+
+# Replace with actual ULID when testing detail / update / delete endpoints:
+@sampleArticleId = 01ARZ3NDEKTSV4RRFFQ69G5FAV
+@sampleCategoryId = 01ARZ3NDEKTSV4RRFFQ69G5FC1
+@sampleTagId = 01M7TAG0000000000000000001
+@sampleMediaId = 01M7MED0000000000000000001
+@sampleRoleId = 01M7ECAYAE7NB3X6BT4BK3DKAQ
+@samplePermissionId = 01M7ECAYAE7NB3X6BT4BK3DKB1
+@sampleUserId = 01M7ECBRK61JN9T5ANTCF1THVP
+
+
+### =========================================================================
+### 0. SYSTEM HEALTH & READINESS PROBES
+### =========================================================================
+
+### 0.1 Full System Health Check (Checks Database Connection & Pool)
+GET {{baseUrl}}/health
+
+### 0.2 Liveness Probe (Instant Container Lifecycle Verification)
+GET {{baseUrl}}/health/live
+
+### 0.3 Readiness Probe (Traffic Routing Ingress Check)
+GET {{baseUrl}}/health/ready
+
+
+### =========================================================================
+### 1. AUTHENTICATION (JWT + REFRESH TOKEN ROTATION)
+### =========================================================================
+
+### 1.1 Register New Account
+POST {{baseUrl}}/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "username": "johndoe",
+  "email": "john@example.com",
+  "password": "password123",
+  "full_name": "John Doe"
+}
+
+### 1.2 Login Account (Admin / User)
+# Generates JWT access_token and refresh_token, and sets HTTP-only cookie
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "adminpassword123"
+}
+
+### 1.3 Refresh Token (via JSON Body)
+# Can be sent via JSON body, automatic HTTP-only cookie, or X-Refresh-Token header
+POST {{baseUrl}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+### 1.3b Refresh Token (via X-Refresh-Token Header)
+POST {{baseUrl}}/api/v1/auth/refresh
+X-Refresh-Token: {{refreshToken}}
+
+### 1.4 Logout (Revoke Session & Clear Cookie)
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+### 1.5 Change Account Password
+POST {{baseUrl}}/api/v1/auth/change-password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "old_password": "adminpassword123",
+  "new_password": "newadminpassword123"
+}
+
+### 1.6 Forgot Password Request
+# Anti-enumeration: always returns 200 OK. Token printed to console (LogMailer) or sent via Resend
+POST {{baseUrl}}/api/v1/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "admin@example.com"
+}
+
+### 1.7 Reset Password (Using Token)
+# Token obtained from console/email (can be set to @sampleToken variable above).
+# All existing refresh token sessions will be automatically revoked upon successful reset.
+POST {{baseUrl}}/api/v1/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "{{sampleToken}}",
+  "new_password": "newpassword12345"
+}
+
+### 1.8 Verify Email (Token via Query Parameter)
+# Accepts token via query parameter or JSON body (POST to avoid crawler/scanner consumption)
+POST {{baseUrl}}/api/v1/auth/verify-email?token={{sampleToken}}
+
+### 1.9 Verify Email (Token via JSON Body)
+# Alternative for mobile app or API clients
+POST {{baseUrl}}/api/v1/auth/verify-email
+Content-Type: application/json
+
+{
+  "token": "{{sampleToken}}"
+}
+
+### 1.10 Resend Verification Email
+# Anti-enumeration: always returns 200 OK. Old pending tokens are revoked automatically.
+POST {{baseUrl}}/api/v1/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "admin@example.com"
+}
+
+
+### =========================================================================
+### 2. USER MANAGEMENT (/api/v1/users)
+### =========================================================================
+
+### 2.1 Get Current User Profile (/me)
+GET {{baseUrl}}/api/v1/users/me
+Authorization: Bearer {{accessToken}}
+
+### 2.2 Update Profile Information
+PUT {{baseUrl}}/api/v1/users/profile
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "full_name": "John Doe",
+  "bio": "Software Engineer & Backend Enthusiast",
+  "phone_number": "081234567890"
+}
+
+### 2.3 Update Username
+PUT {{baseUrl}}/api/v1/users/username
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "username": "johndoe_new"
+}
+
+### 2.4 Check Account Status & Email Verification
+GET {{baseUrl}}/api/v1/users/status
+Authorization: Bearer {{accessToken}}
+
+### 2.5 Upload Profile Avatar (Multipart Form Data)
+POST {{baseUrl}}/api/v1/users/avatar
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="avatar"; filename="avatar.png"
+Content-Type: image/png
+
+< ./testdata/sample.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 2.6 Delete Avatar
+DELETE {{baseUrl}}/api/v1/users/avatar
+Authorization: Bearer {{accessToken}}
+
+### 2.7 Request Email Change
+# Requires authentication & current password confirmation. Verification token sent to new email.
+POST {{baseUrl}}/api/v1/users/email/request-change
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "new_email": "johndoe_new@example.com",
+  "password": "adminpassword123"
+}
+
+### 2.8 Confirm Email Change (Token via Query Parameter)
+# Accepts token via query parameter or JSON body (POST to avoid crawler/scanner consumption)
+POST {{baseUrl}}/api/v1/users/email/confirm-change?token={{sampleToken}}
+
+### 2.9 Confirm Email Change (Token via JSON Body)
+# Alternative for mobile / API clients
+POST {{baseUrl}}/api/v1/users/email/confirm-change
+Content-Type: application/json
+
+{
+  "token": "{{sampleToken}}"
+}
+
+
+### =========================================================================
+### 3. PUBLIC ARTICLES & TAXONOMY (Read-Only & Event Ingestion)
+### =========================================================================
+
+### 3.1 List Published Articles (Pagination, Filters & Search)
+GET {{baseUrl}}/api/v1/articles?page=1&per_page=10&search=&category=&tag=&is_featured=
+
+### 3.2 Article Detail by Slug
+GET {{baseUrl}}/api/v1/articles/building-rest-apis-with-go
+
+### 3.3 Record Article Analytics Event (Idempotent via X-Event-ID or JSON)
+POST {{baseUrl}}/api/v1/articles/{{sampleArticleId}}/analytics
+Content-Type: application/json
+X-Event-ID: evt_01ARZ3NDEKTSV4RRFFQ69G5FA1
+X-Session-ID: sess_987654321
+
+{
+  "event_id": "evt_01ARZ3NDEKTSV4RRFFQ69G5FA1",
+  "session_id": "sess_987654321",
+  "event_type": "view",
+  "reading_time_seconds": 45,
+  "scroll_depth": 75
+}
+
+### 3.4 List All Public Categories
+GET {{baseUrl}}/api/v1/categories
+
+### 3.5 Articles by Category Slug
+GET {{baseUrl}}/api/v1/categories/tutorials-tech/articles?page=1&per_page=10
+
+### 3.6 List All Public Tags
+GET {{baseUrl}}/api/v1/tags
+
+### 3.7 Public Tag Detail by Slug
+GET {{baseUrl}}/api/v1/tags/golang
+
+### 3.8 SEO-Friendly URL Alias
+GET {{baseUrl}}/articles/building-rest-apis-with-go
+
+
+### =========================================================================
+### 4. ADMIN: ARTICLE, TAXONOMY, MEDIA & ANALYTICS MANAGEMENT
+### =========================================================================
+
+### 4.1 List All Articles (Draft, Scheduled, Published, Archived)
+GET {{baseUrl}}/api/v1/admin/articles?page=1&per_page=10&status=&category_id=&author_id=&search=
+Authorization: Bearer {{accessToken}}
+
+### 4.2 Create New Article (XSS Cleaned HTML & Automatic ULID)
+POST {{baseUrl}}/api/v1/admin/articles
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Optimizing MySQL and Go REST Architecture",
+  "slug": "optimizing-mysql-and-go-rest-architecture",
+  "excerpt": "Comprehensive architectural guide covering ULID, connection pools, and SQLC.",
+  "content": "<h2>Architecture Deep Dive</h2><p>Here is an embedded diagram:</p><p><img src=\"http://localhost:8080/uploads/diag.png\" data-media-id=\"{{sampleMediaId}}\" alt=\"Architecture Diagram\" /></p>",
+  "category_id": "{{sampleCategoryId}}",
+  "featured_image_id": "{{sampleMediaId}}",
+  "og_image_id": "{{sampleMediaId}}",
+  "tags": ["Go", "MySQL", "Clean Architecture"],
+  "related_ids": [],
+  "meta_title": "Optimizing MySQL and Go REST Architecture",
+  "meta_description": "Best practices for high-concurrency Go REST backends.",
+  "is_featured": true,
+  "robots_index": true,
+  "robots_follow": true,
+  "status": "published"
+}
+
+### 4.3 Article Detail by ULID
+GET {{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}
+Authorization: Bearer {{accessToken}}
+
+### 4.4 Update Article by ULID (Creates Revision Snapshot Automatically)
+PUT {{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Optimizing MySQL and Go REST Architecture (Revised Edition)",
+  "slug": "optimizing-mysql-and-go-rest-architecture",
+  "excerpt": "Comprehensive architectural guide covering ULID, connection pools, and SQLC.",
+  "content": "<h2>Architecture Deep Dive v2</h2><p>Revised content with updated benchmarks.</p>",
+  "category_id": "{{sampleCategoryId}}",
+  "featured_image_id": "{{sampleMediaId}}",
+  "tags": ["Go", "MySQL", "Performance"],
+  "is_featured": true,
+  "status": "published"
+}
+
+### 4.5 Delete Article by ULID (Soft Delete)
+DELETE {{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}
+Authorization: Bearer {{accessToken}}
+
+### 4.6 List Article Historical Revisions
+GET {{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}/revisions
+Authorization: Bearer {{accessToken}}
+
+### 4.7 List All Categories (Admin)
+GET {{baseUrl}}/api/v1/admin/categories
+Authorization: Bearer {{accessToken}}
+
+### 4.7b Get Category by ULID (Admin)
+GET {{baseUrl}}/api/v1/admin/categories/{{sampleCategoryId}}
+Authorization: Bearer {{accessToken}}
+
+### 4.8 Create New Category
+POST {{baseUrl}}/api/v1/admin/categories
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Cloud & DevOps",
+  "slug": "cloud-devops",
+  "description": "Cloud computing, infrastructure as code, and container orchestration."
+}
+
+### 4.9 Update Category by ULID
+PUT {{baseUrl}}/api/v1/admin/categories/{{sampleCategoryId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Cloud Architecture & DevOps",
+  "slug": "cloud-architecture-devops",
+  "description": "Enterprise cloud architecture and DevOps practices."
+}
+
+### 4.10 Delete Category by ULID (Protected if Category Has Articles)
+DELETE {{baseUrl}}/api/v1/admin/categories/{{sampleCategoryId}}
+Authorization: Bearer {{accessToken}}
+
+### 4.11 List All Tags (Admin)
+GET {{baseUrl}}/api/v1/admin/tags
+Authorization: Bearer {{accessToken}}
+
+### 4.12 Create New Tag
+POST {{baseUrl}}/api/v1/admin/tags
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Microservices",
+  "slug": "microservices"
+}
+
+### 4.13 Update Tag by ULID
+PUT {{baseUrl}}/api/v1/admin/tags/{{sampleTagId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Distributed Systems",
+  "slug": "distributed-systems"
+}
+
+### 4.14 Delete Tag by ULID
+DELETE {{baseUrl}}/api/v1/admin/tags/{{sampleTagId}}
+Authorization: Bearer {{accessToken}}
+
+### 4.15 Upload Media Asset (Image Sniffing, Renaming & Metadata Extraction)
+# Supports form field 'image' or 'file' (max 10MB)
+POST {{baseUrl}}/api/v1/admin/media
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="image"; filename="cover-banner.png"
+Content-Type: image/png
+
+< ./test_uploads/sample.png
+--WebAppBoundary--
+
+### 4.16 List Media Library (Paginated)
+GET {{baseUrl}}/api/v1/admin/media?page=1&per_page=20
+Authorization: Bearer {{accessToken}}
+
+### 4.17 Media Detail by ULID
+GET {{baseUrl}}/api/v1/admin/media/{{sampleMediaId}}
+Authorization: Bearer {{accessToken}}
+
+### 4.18 Delete Media by ULID (Protected if Media is In Use)
+DELETE {{baseUrl}}/api/v1/admin/media/{{sampleMediaId}}
+Authorization: Bearer {{accessToken}}
+
+### 4.19 Get Article Daily Analytics Report (Aggregated by Worker)
+GET {{baseUrl}}/api/v1/admin/articles/{{sampleArticleId}}/analytics?start_date=2026-01-01&end_date=2026-12-31
+Authorization: Bearer {{accessToken}}
+
+### 4.20 Get Global System Analytics Overview
+GET {{baseUrl}}/api/v1/admin/analytics/overview
+Authorization: Bearer {{accessToken}}
+
+
+### =========================================================================
+### 5. RBAC MANAGEMENT (ROLES & PERMISSIONS)
+### =========================================================================
+
+@sampleRoleId = 01M7ECAYAE7NB3X6BT4BK3DKAQ
+@samplePermissionId = 01M7ECAYAE7NB3X6BT4BK3DKB1
+
+### 5.1 List All Roles
+GET {{baseUrl}}/api/v1/admin/roles
+Authorization: Bearer {{accessToken}}
+
+### 5.2 Role Detail by ULID
+GET {{baseUrl}}/api/v1/admin/roles/{{sampleRoleId}}
+Authorization: Bearer {{accessToken}}
+
+### 5.3 Create New Role
+POST {{baseUrl}}/api/v1/admin/roles
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "editor",
+  "display_name": "Content Editor",
+  "description": "Can manage articles and view user listings"
+}
+
+### 5.4 Update Role
+PUT {{baseUrl}}/api/v1/admin/roles/{{sampleRoleId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "display_name": "Senior Content Editor",
+  "description": "Senior level editor access"
+}
+
+### 5.5 Assign Permissions to Role
+PUT {{baseUrl}}/api/v1/admin/roles/{{sampleRoleId}}/permissions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "permission_ids": [
+    "{{samplePermissionId}}"
+  ]
+}
+
+### 5.6 Delete Role
+DELETE {{baseUrl}}/api/v1/admin/roles/{{sampleRoleId}}
+Authorization: Bearer {{accessToken}}
+
+### 5.7 List All Permissions
+GET {{baseUrl}}/api/v1/admin/permissions
+Authorization: Bearer {{accessToken}}
+
+### 5.8 Permission Detail by ULID
+GET {{baseUrl}}/api/v1/admin/permissions/{{samplePermissionId}}
+Authorization: Bearer {{accessToken}}
+
+### 5.9 Create New Permission
+POST {{baseUrl}}/api/v1/admin/permissions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "reports.export",
+  "description": "Download and export system reports"
+}
+
+### 5.10 Update Permission Description
+PUT {{baseUrl}}/api/v1/admin/permissions/{{samplePermissionId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "description": "Download spreadsheet and PDF report files"
+}
+
+### 5.11 Delete Permission
+DELETE {{baseUrl}}/api/v1/admin/permissions/{{samplePermissionId}}
+Authorization: Bearer {{accessToken}}
+
+
+### =========================================================================
+### 6. ADMIN USER MANAGEMENT
+### =========================================================================
+
+@sampleUserId = 01M7ECBRK61JN9T5ANTCF1THVP
+
+### 6.1 List All Users (Search, Filter, Pagination)
+GET {{baseUrl}}/api/v1/admin/users?page=1&limit=10&search=&status=active&role=
+Authorization: Bearer {{accessToken}}
+
+### 6.2 Get Complete User Details (Profile & Roles)
+GET {{baseUrl}}/api/v1/admin/users/{{sampleUserId}}
+Authorization: Bearer {{accessToken}}
+
+### 6.3 Update User Information by Admin
+PUT {{baseUrl}}/api/v1/admin/users/{{sampleUserId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "username": "janedoe",
+  "email": "jane.doe@example.com",
+  "full_name": "Jane Doe",
+  "bio": "Software Engineer & Content Strategist",
+  "phone_number": "+6281234567890"
+}
+
+### 6.4 Update User Account Status (active / inactive / pending_verification / suspended)
+# Note: Protected against deactivating or suspending the last active Super Admin (HTTP 403)
+PUT {{baseUrl}}/api/v1/admin/users/{{sampleUserId}}/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "suspended"
+}
+
+### 6.5 Assign Roles to User
+# Note: Protected against revoking Super Admin role from the last active Super Admin (HTTP 403)
+PUT {{baseUrl}}/api/v1/admin/users/{{sampleUserId}}/roles
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "role_ids": [
+    "{{sampleRoleId}}"
+  ]
+}
+
+### 6.6 Delete User Account
+# Note: Protected against deleting the last active Super Admin (HTTP 403)
+DELETE {{baseUrl}}/api/v1/admin/users/{{sampleUserId}}
+Authorization: Bearer {{accessToken}}
